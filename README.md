@@ -1,4 +1,4 @@
-# 💓 HeartSnap – Smart μPAD-Based Cardiac Biomarker Detection App
+# 💓 HeartSnap – Smart μPAD-Based Cardiac Biomarker Detection App From SMAN 81 Jakarta
 
 HeartSnap is an integrated mobile application and biosensor system designed to enable **early detection of cardiac biomarkers** — particularly **Heart-type Fatty Acid Binding Protein (h-FABP)** — using **microfluidic paper-based analytical devices (μPADs)** combined with **gold nanoparticles (AuNPs)** and **machine learning (YOLOv8)**.  
 This project merges nanotechnology, colorimetric analysis, and artificial intelligence into an accessible **point-of-care diagnostic platform** for rapid and affordable cardiac health screening.
