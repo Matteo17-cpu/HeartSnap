@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "693128817437",
+    "project_id": "heartsnap-a5c66",
+    "storage_bucket": "heartsnap-a5c66.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:693128817437:android:e1610733fb086089408ff4",
+        "android_client_info": {
+          "package_name": "com.rivamatteo.heartsnap"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWxArNgeZCCF6MVKM-5y5mpWIjMCPPl3g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
