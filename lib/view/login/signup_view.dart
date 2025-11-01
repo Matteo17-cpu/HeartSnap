@@ -1,13 +1,11 @@
-import 'dart:convert';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:heartsnap/common/color_extension.dart';
 import 'package:heartsnap/common/round_button.dart';
 import 'package:heartsnap/common/round_textfield.dart';
-import 'package:heartsnap/view/home/dashboard.dart';
 import 'package:heartsnap/view/login/login_view.dart';
-import 'package:http/http.dart' as http;
+import 'package:heartsnap/view/home/dashboard.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});
@@ -19,49 +17,112 @@ class SignUpView extends StatefulWidget {
 class _SignUpViewState extends State<SignUpView> {
   bool isCheck = false;
   bool isPasswordObsecured = true;
-  bool isRegistering = false; // tombol disable saat "proses"
+  bool isRegistering = false;
 
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  @override
+  void dispose() {
+    usernameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> register() async {
-    final responseRegister = await http.post(
-      Uri.parse(
-        "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyBXb9u_lV2inJjmM60_1TWc7EX65Lz7ulA",
-      ),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": emailController.text,
-        "password": passwordController.text,
-      }),
-    );
-    if (responseRegister.statusCode == 200) {
-      final responseRegisterBody = jsonDecode(responseRegister.body);
-      print(responseRegisterBody);
-      
-      final responseUpdate = await http.post(
-        Uri.parse(
-          "https://identitytoolkit.googleapis.com/v1/accounts:update?key=AIzaSyBXb9u_lV2inJjmM60_1TWc7EX65Lz7ulA",
-        ),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "idToken": responseRegisterBody['idToken'],
-          "displayName": usernameController.text,
-        }),
-      );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Register berhasil!")));
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => LoginView()),
-      );
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Register gagal: ${responseRegister.body}")));
+    // Validasi input
+    if (usernameController.text.trim().isEmpty) {
+      _showSnackBar("Username tidak boleh kosong");
+      return;
     }
+
+    if (emailController.text.trim().isEmpty) {
+      _showSnackBar("Email tidak boleh kosong");
+      return;
+    }
+
+    if (passwordController.text.trim().isEmpty) {
+      _showSnackBar("Password tidak boleh kosong");
+      return;
+    }
+
+    if (passwordController.text.length < 6) {
+      _showSnackBar("Password minimal 6 karakter");
+      return;
+    }
+
+    setState(() => isRegistering = true);
+
+    try {
+      // ✅ Gunakan Firebase Auth SDK untuk register
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      // ✅ Update display name user
+      await userCredential.user?.updateDisplayName(usernameController.text.trim());
+      
+      // ✅ Reload user untuk refresh data
+      await userCredential.user?.reload();
+
+      if (!mounted) return;
+
+      _showSnackBar("Register berhasil! Selamat datang ${usernameController.text}");
+
+      // ✅ Navigate langsung ke Dashboard setelah register berhasil
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const Dashboard()),
+      );
+      
+    } on FirebaseAuthException catch (e) {
+      String message;
+      
+      switch (e.code) {
+        case 'weak-password':
+          message = 'Password terlalu lemah. Gunakan kombinasi huruf, angka, dan simbol.';
+          break;
+        case 'email-already-in-use':
+          message = 'Email sudah terdaftar. Silakan login atau gunakan email lain.';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid.';
+          break;
+        case 'operation-not-allowed':
+          message = 'Operasi tidak diizinkan. Hubungi administrator.';
+          break;
+        case 'network-request-failed':
+          message = 'Koneksi internet bermasalah. Cek koneksi Anda.';
+          break;
+        default:
+          message = 'Register gagal: ${e.message ?? "Error tidak diketahui"}';
+      }
+
+      if (!mounted) return;
+      _showSnackBar(message);
+      
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar("Terjadi kesalahan: $e");
+    } finally {
+      if (mounted) {
+        setState(() => isRegistering = false);
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -76,7 +137,12 @@ class _SignUpViewState extends State<SignUpView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text("Hey there,", style: TextStyle(color: TColor.gray, fontSize: 16)),
+                SizedBox(height: media.width * 0.1),
+                
+                Text(
+                  "Hey there,",
+                  style: TextStyle(color: TColor.gray, fontSize: 16),
+                ),
                 Text(
                   "Create an Account",
                   style: TextStyle(
@@ -87,12 +153,15 @@ class _SignUpViewState extends State<SignUpView> {
                 ),
                 SizedBox(height: media.width * 0.05),
 
+                // Username Field
                 RoundTextField(
                   controller: usernameController,
                   hitText: "Username",
                   icon: "assets/img/user_text.png",
                 ),
                 SizedBox(height: media.width * 0.04),
+
+                // Email Field
                 RoundTextField(
                   controller: emailController,
                   hitText: "Email",
@@ -100,6 +169,8 @@ class _SignUpViewState extends State<SignUpView> {
                   keyboardType: TextInputType.emailAddress,
                 ),
                 SizedBox(height: media.width * 0.04),
+
+                // Password Field
                 RoundTextField(
                   controller: passwordController,
                   hitText: "Password",

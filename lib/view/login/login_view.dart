@@ -1,13 +1,11 @@
-import 'dart:convert';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:heartsnap/common/color_extension.dart';
 import 'package:heartsnap/common/round_button.dart';
 import 'package:heartsnap/common/round_textfield.dart';
-import 'package:heartsnap/view/home/dashboard.dart';
 import 'package:heartsnap/view/login/signup_view.dart';
-import 'package:http/http.dart' as http;
+import 'package:heartsnap/view/home/dashboard.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -19,35 +17,136 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> {
   bool isCheck = false;
   bool isPasswordObsecured = true;
+  bool isLoggingIn = false;
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> login() async {
-    final response = await http.post(
-      Uri.parse(
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBXb9u_lV2inJjmM60_1TWc7EX65Lz7ulA",
-      ),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": emailController.text,
-        "password": passwordController.text,
-      }),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      print(data);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login berhasil!")));
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => Dashboard()),
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email dan password tidak boleh kosong.")),
       );
-    } else {
-      ScaffoldMessenger.of(
+      return;
+    }
+
+    setState(() => isLoggingIn = true);
+
+    try {
+      // ✅ Gunakan Firebase Auth SDK untuk login
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      // ✅ Force reload user untuk memastikan state ter-update
+      await userCredential.user?.reload();
+      
+      print("✅ Login successful for: ${userCredential.user?.email}");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Login berhasil!"),
+          duration: Duration(seconds: 1),
+        ),
+      );
+
+      // ✅ ULTIMATE FIX: Navigate langsung ke Dashboard
+      // AuthWrapper akan handle session persistence
+      Navigator.pushReplacement(
         context,
-      ).showSnackBar(SnackBar(content: Text("Login gagal: ${response.body}")));
+        MaterialPageRoute(builder: (context) => const Dashboard()),
+      );
+
+    } on FirebaseAuthException catch (e) {
+      String message;
+
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Email tidak terdaftar. Silakan register terlebih dahulu.';
+          break;
+        case 'wrong-password':
+          message = 'Password salah. Coba lagi atau reset password.';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid.';
+          break;
+        case 'user-disabled':
+          message = 'Akun Anda telah dinonaktifkan.';
+          break;
+        case 'too-many-requests':
+          message = 'Terlalu banyak percobaan login. Coba lagi nanti.';
+          break;
+        case 'network-request-failed':
+          message = 'Koneksi internet bermasalah. Cek koneksi Anda.';
+          break;
+        case 'invalid-credential':
+          message = 'Email atau password salah.';
+          break;
+        default:
+          message = 'Login gagal: ${e.message ?? "Error tidak diketahui"}';
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Terjadi kesalahan: $e")),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isLoggingIn = false);
+      }
+    }
+  }
+
+  Future<void> resetPassword() async {
+    if (emailController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Masukkan email terlebih dahulu")),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Email reset password telah dikirim. Cek inbox Anda.")),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message;
+
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'Email tidak terdaftar.';
+          break;
+        case 'invalid-email':
+          message = 'Format email tidak valid.';
+          break;
+        default:
+          message = 'Gagal mengirim email: ${e.message}';
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
@@ -63,6 +162,8 @@ class _LoginViewState extends State<LoginView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                SizedBox(height: media.width * 0.1),
+
                 Text(
                   "Hey there,",
                   style: TextStyle(color: TColor.gray, fontSize: 16),
@@ -109,6 +210,7 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
 
+                // Forgot Password
                 Align(
                   alignment: Alignment.center,
                   child: Padding(
@@ -121,11 +223,8 @@ class _LoginViewState extends State<LoginView> {
                           decoration: TextDecoration.underline,
                           fontSize: 12,
                         ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = () {
-                                // TODO: aksi reset password (nanti backend)
-                              },
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = resetPassword,
                       ),
                     ),
                   ),
@@ -146,21 +245,15 @@ class _LoginViewState extends State<LoginView> {
                   ],
                 ),
 
-                SizedBox(height: media.width * 0.2),
+                SizedBox(height: media.width * 0.1),
 
                 // Login Button
                 RoundButton(
-                  title: "Login",
-                  type:
-                      isCheck
-                          ? RoundButtonType.bgGradient
-                          : RoundButtonType.textGradient,
-                  onPressed:
-                      isCheck
-                          ? () {
-                            login();
-                          }
-                          : null,
+                  title: isLoggingIn ? "Logging in..." : "Login",
+                  type: isCheck
+                      ? RoundButtonType.bgGradient
+                      : RoundButtonType.textGradient,
+                  onPressed: isCheck && !isLoggingIn ? login : null,
                 ),
 
                 SizedBox(height: media.width * 0.04),
@@ -208,7 +301,7 @@ class _LoginViewState extends State<LoginView> {
                   text: TextSpan(
                     style: TextStyle(color: TColor.black, fontSize: 14),
                     children: [
-                      const TextSpan(text: "Don’t have an account yet? "),
+                      const TextSpan(text: "Don't have an account yet? "),
                       TextSpan(
                         text: "Register",
                         style: TextStyle(
@@ -217,16 +310,15 @@ class _LoginViewState extends State<LoginView> {
                           fontWeight: FontWeight.w700,
                           decoration: TextDecoration.underline,
                         ),
-                        recognizer:
-                            TapGestureRecognizer()
-                              ..onTap = () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const SignUpView(),
-                                  ),
-                                );
-                              },
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const SignUpView(),
+                              ),
+                            );
+                          },
                       ),
                     ],
                   ),

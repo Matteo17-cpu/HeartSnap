@@ -45,10 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Kami memerlukan akses kamera untuk mengambil gambar.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Kami memerlukan akses galeri untuk memilih gambar.</string>
 
+	<!-- 🔒 Permission iOS -->
+	<key>NSCameraUsageDescription</key>
+	<string>HeartSnap memerlukan akses kamera untuk melakukan scan</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HeartSnap memerlukan akses galeri untuk memilih foto</string>
 </dict>
 </plist>
